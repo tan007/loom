@@ -317,7 +317,7 @@ def Extractable.forIn (xs : List α) (init : β) (f : α -> β -> NonDetT m (For
     simp_all
 
 noncomputable
-def Extractable.forIn_range (m : Type -> Type v) (l : Type) {β : Type} [CompleteBooleanAlgebra l] [Monad m] [MAlgOrdered m l] (xs : Std.Range) (init : β) (f : ℕ -> β -> NonDetT m (ForInStep β))
+def Extractable.forIn_range (m : Type -> Type v) (l : Type) {β : Type} [CompleteBooleanAlgebra l] [Monad m] [MAlgOrdered m l] (xs : Std.Legacy.Range) (init : β) (f : ℕ -> β -> NonDetT m (ForInStep β))
   (ex: ∀ a b, Extractable (f a b)):
   Extractable (ForIn.forIn xs init f) := by
     unfold instForInOfForIn'; simp; solve_by_elim [forIn]
@@ -404,15 +404,18 @@ lemma ExtractNonDet.extract_refines (pre : l) (s : NonDetT m α) (inst : Extract
 
 omit [CCPOBot m] [MAlgDet m l] [LawfulMonad m] in
 lemma wp_csup (xc : Set (m α)) (post : α -> l) [∀ α, CCPO (m α)] [MAlgPartial m]:
-  Lean.Order.chain xc ->
-  ⨅ c ∈ xc, wp c post ≤ wp (Lean.Order.CCPO.csup xc) post := by
+  (hxc : Lean.Order.chain xc) ->
+  ⨅ c ∈ xc, wp c post ≤ wp (Lean.Order.CCPO.csup (c := xc) hxc) post := by
   apply MAlgPartial.csup_lift
 
 omit [CCPOBot m] [MAlgDet m l] [LawfulMonad m] in
 lemma wp_bot [∀ α, CCPO (m α)] [MAlgPartial m]:
   wp (bot : m α) = fun _ => (⊤ : l) := by
   ext post; refine eq_top_iff.mpr ?_
-  apply le_trans'; apply wp_csup; simp [chain]
+  apply le_trans'
+  · exact wp_csup (xc := (∅ : Set (m α))) (post := post) (by
+      intro x y hx
+      exact False.elim hx)
   refine le_iInf₂ ?_
   intro; erw [Set.mem_empty_iff_false]; simp
 

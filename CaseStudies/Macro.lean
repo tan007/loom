@@ -18,7 +18,7 @@ Elaboration rule for the `decreasing` annotation. Here we will
 -/
 elab "decreasing" t:term : term => do
   let opts <- getOptions
-  let semantics := opts.getString (defVal := "unspecified") `loom.semantics.termination
+  let semantics := opts.get `loom.semantics.termination "unspecified"
   if semantics = "unspecified" then
     throwError "First, you need to specify the termination semantics using `set_option loom.semantics.termination <partial/total>`"
   let decr <- `(decreasingGadget $t)

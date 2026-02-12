@@ -1,5 +1,12 @@
+import Auto
+import Lean
+
 import Mathlib.Algebra.BigOperators.Intervals
 import Mathlib.Algebra.Ring.Int.Defs
+
+import Loom.MonadAlgebras.NonDetT.Extract
+import Loom.MonadAlgebras.WP.Tactic
+import Loom.MonadAlgebras.WP.DoNames'
 
 import CaseStudies.Velvet.Std
 import CaseStudies.TestingUtil
@@ -201,3 +208,4 @@ method pow2 (n: Nat) return (res: Nat)
 
 prove_correct pow2 by
   loom_solve
+  rw [if_pos]; rfl

@@ -6,8 +6,7 @@ import Loom.MonadAlgebras.WP.Attr
 import Loom.MonadAlgebras.WP.Tactic
 -- import Loom.MonadAlgebras.WP.DoNames'
 import Loom.MonadAlgebras.WP.Gen
--- import Loom.Tactic
-import Loom.TacticAsync
+import Loom.Tactic
 import Loom.SMT
 
 import CaseStudies.Extension
@@ -59,8 +58,6 @@ def getAssertionStx : TacticM (Option Term) := withMainContext do
 
 declare_syntax_cat loom_solve_tactic
 syntax "loom_solve" : loom_solve_tactic
-syntax "loom_solve_async" (num)? : loom_solve_tactic
-syntax "loom_solve_async!" (num)? : loom_solve_tactic
 syntax "loom_solve?" : loom_solve_tactic
 syntax "loom_solve!" : loom_solve_tactic
 syntax loom_solve_tactic : tactic
@@ -69,16 +66,6 @@ syntax "loom_goals_intro" : tactic
 syntax "loom_unfold" : tactic
 syntax "loom_auto" : tactic
 syntax "loom_solver" : tactic
-
-def loomSolveAsync? : TSyntax `loom_solve_tactic -> Option (Option Nat)
-  | `(loom_solve_tactic| loom_solve_async $n ?)
-  | `(loom_solve_tactic| loom_solve_async! $n ?) => some (n.map (·.getNat))
-  | _ => none
-
-def loomSolveIsReporting : TSyntax `loom_solve_tactic -> Bool
-  | `(loom_solve_tactic| loom_solve_async! $_ ?)
-  | `(loom_solve_tactic| loom_solve!) => true
-  | _ => false
 
 elab_rules : tactic
   | `(tactic| loom_goals_intro) => withMainContext do
@@ -128,31 +115,31 @@ elab_rules : tactic
     else
       let vlsIntro ← `(tactic| loom_goals_intro)
       let vlsUnfold ← `(tactic| loom_unfold)
-      let vlsSolve ← `(tactic| try solve | loom_unfold; loom_solver)
+      let vlsSolve ← `(tactic| loom_solver)
       evalTactic vlsIntro
-      let goals <- getUnsolvedGoals
-      if let some n := loomSolveAsync? vls then
-        if goals.length < n.getD 0 then
-          logWarningAt vls m!"This method has only {goals.length} Verification Conditions, but `loom_solve_async` is called with {n.get!} asynchronous tasks"
-        allGoalsAsync (numTasks := n.map (·.min goals.length)) do
-          evalTactic vlsSolve
-        logWarningAt vls m!
-        "`loom_solve_async` uses sorry to admit all the solved goals for now, consider running `loom_solve` once proof is complete to get the proof term"
-      else
-        allGoals do evalTactic vlsSolve
-      let mut unsolved := #[]
-      for mvarId in <- getUnsolvedGoals do
-        setGoals [mvarId]
-        let stx <- getAssertionStx
+      let res <- anyGoalsWithTag fun _mvarId => do
+        let stx_res <- getAssertionStx
         evalTactic vlsUnfold
-        if let some stx := stx then
-          (<- getMainGoal).setTag <| .mkSimple stx.raw.prettyPrint.pretty
-          if loomSolveIsReporting vls then
-            logErrorAt stx $ m!"Failed to prove assertion\n{mvarId}"
-        else if loomSolveIsReporting vls then
-          logErrorAt vls m!"Failed to prove nameless assertion\n{mvarId}"
-        unsolved := unsolved.append (← getUnsolvedGoals).toArray
-      setGoals unsolved.toList
+        let mvarId <- getMainGoal
+        evalTactic vlsSolve
+        if (<- getUnsolvedGoals).length > 0 then
+          match stx_res with
+          | some stx =>
+            return some (.mkSimple stx.raw.prettyPrint.pretty, (mvarId, some stx))
+          | none =>
+            return some (`unnamed, (mvarId, none))
+        else return none
+      let tryVlsSolve ← `(tactic| all_goals try loom_solver)
+      let tryVlsUnfold ← `(tactic| all_goals try loom_unfold)
+      evalTactic tryVlsSolve
+      evalTactic tryVlsUnfold
+      match vls with
+      | `(loom_solve_tactic| loom_solve!) =>
+        for (mvarId, stx_res) in res do
+          match stx_res with
+          | some stx => logErrorAt stx $ m!"Failed to prove assertion\n{mvarId}"
+          | none => logError m!"Failed to prove nameless assertion\n{mvarId}"
+      | _ => pure ()
 
 elab "loom_solve?" : tactic => withMainContext do
   let ctx := (<- solverHints.get)
@@ -183,12 +170,12 @@ elab "loom_solve?" : tactic => withMainContext do
 elab_rules : tactic
   | `(tactic| loom_solver) => withMainContext do
     let opts <- getOptions
-    let solver := opts.getString (defVal := "grind") `loom.solver
+    let solver := opts.get `loom.solver "grind"
     match solver with
       | "grind" =>
         /- In case of `grind` solver, we need  to fetch the number of splits from the options first. -/
-        let splits := Lean.Syntax.mkNatLit <| (opts.getNat (defVal := 20) `loom.solver.grind.splits)
-        evalTactic $ <- `(tactic| grind ($(mkIdent `splits):ident := $splits))
+        let splits := Lean.Syntax.mkNatLit <| (opts.get `loom.solver.grind.splits 20)
+        evalTactic $ <- `(tactic| try grind ($(mkIdent `splits):ident := $splits))
       | "custom" =>
         evalTactic $ <- `(tactic| fail "Custom solver is not specified")
       | _ => evalTactic $ <- `(tactic| loom_auto)

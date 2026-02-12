@@ -53,9 +53,24 @@ instance [Monad m] [CCPOBot m] : CCPOBot (ReaderT σ m) where
 
 instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] [CCPOBotLawful m] : CCPOBotLawful (ReaderT σ m) where
   prop := by
-    simp [Lean.Order.bot, Lean.Order.CCPO.csup, instCCPOReaderTOfMonad_loom]
-    unfold Lean.Order.fun_csup; intro α; ext; simp
-    apply CCPOBotLawful.prop
+    intro α
+    ext s
+    have hbot : (Lean.Order.bot : ReaderT σ m α) s = (Lean.Order.bot : m α) := by
+      rw [show (Lean.Order.bot : ReaderT σ m α) =
+        Lean.Order.CCPO.csup (c := Lean.Order.empty_chain (ReaderT σ m α)) (by
+          intro x y hx
+          exact False.elim hx) by rfl]
+      rw [← Lean.Order.fun_csup_eq
+        (c := Lean.Order.empty_chain (ReaderT σ m α))
+        (hc := by
+          intro x y hx
+          exact False.elim hx)]
+      simp [Lean.Order.fun_csup, Lean.Order.empty_chain, Lean.Order.bot]
+    calc
+      (CCPOBot.compBot (m := ReaderT σ m) (α := α)) s
+          = CCPOBot.compBot (m := m) (α := α) := rfl
+      _ = (Lean.Order.bot : m α) := CCPOBotLawful.prop (m := m)
+      _ = (Lean.Order.bot : ReaderT σ m α) s := hbot.symm
 
 lemma MAlg.lift_ReaderT [Monad m] [LawfulMonad m] [CompleteLattice l] [inst: MAlgOrdered m l] (x : ReaderT σ m α) :
   MAlg.lift x post = fun s => MAlg.lift (x s) (fun xs => post xs s) := by
@@ -67,25 +82,37 @@ instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered
   [MAlgPartial m] : MAlgPartial (ReaderT σ m) where
   csup_lift {α} chain := by
     intro post hchain
-    simp [instCCPOReaderTOfMonad_loom, CCPO.csup, MAlg.lift_ReaderT]
-    rw [@Pi.le_def]; simp; unfold fun_csup; intro s
+    rw [← Lean.Order.fun_csup_eq (c := chain) (hc := hchain)]
+    simp [MAlg.lift_ReaderT, Lean.Order.fun_csup]
+    rw [@Pi.le_def]; simp; intro s
     apply le_trans'
     apply MAlgPartial.csup_lift (m := m)
-    { simp [Lean.Order.chain]; rintro x y f cf rfl g cg rfl
-      cases (hchain f g cf cg)
-      { left; solve_by_elim }
-      right; solve_by_elim }
-    repeat rw [@iInf_subtype']
-    refine iInf_mono' ?_; simp [Membership.mem, Set.Mem]; aesop
+    { repeat rw [@iInf_subtype']
+      refine iInf_mono' ?_; simp [Membership.mem, Set.Mem]; aesop }
 
 attribute [-simp] le_bot_iff in
 instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l]
   [∀ α, CCPO (m α)]  [MonoBind m]
   [MAlgTotal m] : MAlgTotal (ReaderT σ m) where
   bot_lift := by
-    simp [MAlg.lift_ReaderT, bot, instCCPOReaderTOfMonad_loom, CCPO.csup, fun_csup]
-    intros; intro; simp;
-    apply MAlgTotal.bot_lift (m := m)
+    intro α post s
+    have hbot : (Lean.Order.bot : ReaderT σ m α) s = (Lean.Order.bot : m α) := by
+      rw [show (Lean.Order.bot : ReaderT σ m α) =
+        Lean.Order.CCPO.csup (c := Lean.Order.empty_chain (ReaderT σ m α)) (by
+          intro x y hx
+          exact False.elim hx) by rfl]
+      rw [← Lean.Order.fun_csup_eq
+        (c := Lean.Order.empty_chain (ReaderT σ m α))
+        (hc := by
+          intro x y hx
+          exact False.elim hx)]
+      simp [Lean.Order.fun_csup, Lean.Order.empty_chain, Lean.Order.bot]
+    calc
+      MAlg.lift (Lean.Order.bot : ReaderT σ m α) post s
+          = MAlg.lift ((Lean.Order.bot : ReaderT σ m α) s) (fun xs => post xs s) := by
+              simp [MAlg.lift_ReaderT]
+      _ = MAlg.lift (Lean.Order.bot : m α) (fun xs => post xs s) := by rw [hbot]
+    exact MAlgTotal.bot_lift (m := m) (post := fun xs => post xs s)
 
 instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l]
   [inst': NoFailure m] : NoFailure (ReaderT σ m) where
