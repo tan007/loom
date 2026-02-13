@@ -55,3 +55,26 @@ attribute [grind] adjacent_to_global_sorted
 
 prove_correct IsSorted by
   loom_solve
+  cases i_2
+  constructor
+  · intro hs i' j' h0 hij hjs
+    have hi : i = a.size - 1 := by
+      rcases done_1 with hi | hsfalse
+      · exact hi
+      · exfalso
+        simpa [hs] using hsfalse
+    have h_adj : ∀ k, 0 ≤ k ∧ k < a.size - 1 → a[k]! ≤ a[k+1]! := by
+      intro k hk
+      have hk' : k < i := by simpa [hi] using hk.2
+      exact invariant_2 hs k hk.1 hk'
+    exact adjacent_to_global_sorted a h_adj i' j' ⟨h0, hij, hjs⟩
+  · intro hglob
+    by_cases hs : sorted = true
+    · exact hs
+    · have hsfalse : sorted = false := by
+        cases hsrt : sorted with
+        | false => exact rfl
+        | true => exact (False.elim (hs hsrt))
+      rcases invariant_3 hsfalse with ⟨k, hk0, hklt, hgt⟩
+      have hle := hglob k (k + 1) hk0 (by omega) (by omega)
+      omega

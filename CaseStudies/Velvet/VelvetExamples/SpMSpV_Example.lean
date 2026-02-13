@@ -250,13 +250,95 @@ theorem spv_dot_exh
     by_cases triv: spv1.size ≤ pnt1 ∨ spv2.size ≤ pnt2 <;> simp [triv]
     omega
 
+private lemma get_set!_self {α : Type} [Inhabited α] (xs : Array α) (i : Nat) (v : α)
+    (hi : i < xs.size) : (xs.set! i v)[i]! = v := by
+  simp [Array.set!_eq_setIfInBounds, hi]
+
+private lemma get_set!_ne {α : Type} [Inhabited α] (xs : Array α) (i j : Nat) (v : α)
+    (hij : i ≠ j) (hj : j < xs.size) : (xs.set! i v)[j]! = xs[j]! := by
+  simp [Array.set!_eq_setIfInBounds, hij, hj]
+
 --proofs for sparse vector by sparse vector multiplication
 --and sparse matrix by sparse vector multiplication algorithms
 prove_correct SpVSpV by
-  loom_solve <;> loom_auto
+  loom_solve
+  · have hp1 : pnt1 < spv1.size := by omega
+    have hp2 : pnt2 < spv2.size := by omega
+    have hstep :=
+      spv_dot_eq spv1 spv2 pnt1 pnt2 out[0]! invariant_3 if_pos hp1 hp2
+    simpa [Array.set!_eq_setIfInBounds, invariant_1] using hstep
+  · have hp1 : pnt1 < spv1.size := by omega
+    have hp2 : pnt2 < spv2.size := by omega
+    exact spv_dot_lt spv1 spv2 pnt1 pnt2 out[0]! invariant_3 if_pos hp1 hp2
+  · have hp1 : pnt1 < spv1.size := by omega
+    have hp2 : pnt2 < spv2.size := by omega
+    have hle : spv2.ind[pnt2]! ≤ spv1.ind[pnt1]! := by omega
+    exact spv_dot_gt spv1 spv2 pnt1 pnt2 out[0]! invariant_3 hle if_neg hp1 hp2
+  · cases i_2
+    have hzero : spv_dot spv1 spv2 pnt1 pnt2 = 0 :=
+      spv_dot_exh spv1 spv2 pnt1 pnt2 done_1
+    have hsum : out[0]! = spv_dot spv1 spv2 0 0 := by
+      simpa [hzero] using invariant_3
+    simpa using hsum
 
 prove_correct SpMSpV by
-  loom_solve <;> loom_auto
+  loom_solve
+  · intro i_1 hi_1
+    by_cases hEq : i_1 = i
+    · subst i_1
+      have hOut : (out.setIfInBounds i (out[i]! + spm[i]!.val[spmInd[i]!]! * spv.val[spvInd[i]!]!))[i]! =
+          out[i]! + spm[i]!.val[spmInd[i]!]! * spv.val[spvInd[i]!]! := by
+        simp [show i < out.size by simpa [invariant_3] using a]
+      have hSpm : (spmInd.setIfInBounds i (spmInd[i]! + 1))[i]! = spmInd[i]! + 1 := by
+        simp [show i < spmInd.size by simpa [invariant_2] using a]
+      have hSpv : (spvInd.setIfInBounds i (spvInd[i]! + 1))[i]! = spvInd[i]! + 1 := by
+        simp [show i < spvInd.size by simpa [invariant_1] using a]
+      have hStep :=
+        spv_dot_eq (spm[i]!) spv (spmInd[i]!) (spvInd[i]!) out[i]! (invariant_6 i a)
+          if_pos_1 a_1 a_2
+      simpa [hOut, hSpm, hSpv] using hStep
+    · have hne : i ≠ i_1 := by exact fun h => hEq h.symm
+      have hOut : (out.setIfInBounds i (out[i]! + spm[i]!.val[spmInd[i]!]! * spv.val[spvInd[i]!]!))[i_1]! =
+          out[i_1]! := by
+        simp [hne, show i_1 < out.size by simpa [invariant_3] using hi_1]
+      have hSpm : (spmInd.setIfInBounds i (spmInd[i]! + 1))[i_1]! = spmInd[i_1]! := by
+        simp [hne, show i_1 < spmInd.size by simpa [invariant_2] using hi_1]
+      have hSpv : (spvInd.setIfInBounds i (spvInd[i]! + 1))[i_1]! = spvInd[i_1]! := by
+        simp [hne, show i_1 < spvInd.size by simpa [invariant_1] using hi_1]
+      simpa [hOut, hSpm, hSpv] using (invariant_6 i_1 hi_1)
+  · intro i_1 hi_1
+    by_cases hEq : i_1 = i
+    · subst i_1
+      have hSpm : (spmInd.setIfInBounds i (spmInd[i]! + 1))[i]! = spmInd[i]! + 1 := by
+        simp [show i < spmInd.size by simpa [invariant_2] using a]
+      have hStep :=
+        spv_dot_lt (spm[i]!) spv (spmInd[i]!) (spvInd[i]!) out[i]! (invariant_6 i a)
+          if_pos_1 a_1 a_2
+      simpa [hSpm] using hStep
+    · have hne : i ≠ i_1 := by exact fun h => hEq h.symm
+      have hSpm : (spmInd.setIfInBounds i (spmInd[i]! + 1))[i_1]! = spmInd[i_1]! := by
+        simp [hne, show i_1 < spmInd.size by simpa [invariant_2] using hi_1]
+      simpa [hSpm] using (invariant_6 i_1 hi_1)
+  · intro i_1 hi_1
+    by_cases hEq : i_1 = i
+    · subst i_1
+      have hSpv : (spvInd.setIfInBounds i (spvInd[i]! + 1))[i]! = spvInd[i]! + 1 := by
+        simp [show i < spvInd.size by simpa [invariant_1] using a]
+      have hle : spv.ind[spvInd[i]!]! ≤ spm[i]!.ind[spmInd[i]!]! := by omega
+      have hStep :=
+        spv_dot_gt (spm[i]!) spv (spmInd[i]!) (spvInd[i]!) out[i]! (invariant_6 i a)
+          hle if_neg a_1 a_2
+      simpa [hSpv] using hStep
+    · have hne : i ≠ i_1 := by exact fun h => hEq h.symm
+      have hSpv : (spvInd.setIfInBounds i (spvInd[i]! + 1))[i_1]! = spvInd[i_1]! := by
+        simp [hne, show i_1 < spvInd.size by simpa [invariant_1] using hi_1]
+      simpa [hSpv] using (invariant_6 i_1 hi_1)
+  · intro i_3 hi_3
+    cases i_2
+    have hExh : spmInd[i_3]! = spm[i_3]!.size ∨ spvInd[i_3]! = spv.size := done_1 i_3 hi_3
+    have hZero : spv_dot spm[i_3]! spv spmInd[i_3]! spvInd[i_3]! = 0 :=
+      spv_dot_exh (spm[i_3]!) spv (spmInd[i_3]!) (spvInd[i_3]!) hExh
+    simpa [hZero] using (invariant_6 i_3 hi_3)
 
 --now we will prove that presented algorithms indeed calculate
 --dot product/matrix product
@@ -309,59 +391,54 @@ theorem VSpV_correct_pure (out: Array Int) (arr: Array Int)
             simp [Finset.sum_range_succ]
             rw [←hm (by omega)]
             have splitted_sum:
-              (∑ i ∈ Finset.range (spv.ind.size), if spv.ind[i]! < m then spv.val[i]! * arr[spv.ind[i]!]! else 0) +
-              (∑ i ∈ Finset.range (spv.ind.size), if spv.ind[i]! = m then spv.val[i]! * arr[spv.ind[i]!]! else 0) =
-              (∑ i ∈ Finset.range (spv.ind.size), if spv.ind[i]! < m + 1 then spv.val[i]! * arr[spv.ind[i]!]! else 0) := by
+              (∑ i ∈ Finset.range (spv.size), if spv.ind[i]! < m then spv.val[i]! * arr[spv.ind[i]!]! else 0) +
+              (∑ i ∈ Finset.range (spv.size), if spv.ind[i]! = m then spv.val[i]! * arr[spv.ind[i]!]! else 0) =
+              (∑ i ∈ Finset.range (spv.size), if spv.ind[i]! ≤ m then spv.val[i]! * arr[spv.ind[i]!]! else 0) := by
                 rw [←Finset.sum_add_distrib]
                 rw [Finset.sum_congr (by rfl)]
                 intro x hx
                 by_cases h_eq_m : spv.ind[x]! = m <;> simp [h_eq_m]
-                have miff : spv.ind[x]! < m ↔ spv.ind[x]! < m + 1 := by
+                have miff : spv.ind[x]! < m ↔ spv.ind[x]! ≤ m := by
                   constructor <;> rintro h_lt <;> omega
                 simp [miff]
-            rw [←spv.size_eq.1, ←splitted_sum, add_left_cancel_iff.mpr]
+            rw [←splitted_sum, add_left_cancel_iff.mpr]
             by_cases exists_i: ∃ i < spv.size, spv.ind[i]! = m
-            { rcases exists_i with ⟨ind, h_ind⟩
-              rw [← h_ind.right]
+            · rcases exists_i with ⟨ind, h_ind⟩
+              rw [←h_ind.right]
               have lemma_res := getValSpV_eq spv ind h_ind.left
               simp at lemma_res
               simp [lemma_res]
-              have almost_zero : ∀ i ∈ Finset.range (spv.ind.size), i ≠ ind →
+              have almost_zero : ∀ i ∈ Finset.range (spv.size), i ≠ ind →
                 ((if spv.ind[i]! = spv.ind[ind]! then spv.val[i]! * arr[spv.ind[i]!]! else 0) = 0) := by
                   intro i i_inb i_not_ind
                   by_cases vind_eq : spv.ind[i]! = spv.ind[ind]!
-                  { simp at i_inb
-                    have i_sz: i < spv.size := by
-                      rw [spv.size_eq.1] at i_inb
-                      exact i_inb
+                  · have i_sz: i < spv.size := by simpa using i_inb
                     rcases lt_or_gt_of_ne i_not_ind with i_lt | inb_lt
-                    { simp [getElem, Nat.lt_iff_le_and_ne.mp (spv.inc i ind i_sz h_ind.left i_lt)] }
+                    · simp [getElem, Nat.lt_iff_le_and_ne.mp (spv.inc i ind i_sz h_ind.left i_lt)]
                     have lt := Nat.lt_iff_le_and_ne.mp (spv.inc ind i h_ind.left i_sz inb_lt)
                     simp [getElem] at vind_eq
-                    simp [vind_eq] at lt }
+                    simp [vind_eq] at lt
                   simp [vind_eq]
               have ind_inb: ind ∉ Finset.range (spv.size) →
                 ((if spv.ind[ind]! = spv.ind[ind]! then spv.val[ind]! * arr[spv.ind[ind]!]! else 0) = 0) := by
                   intro ind_not_inb
                   simp at ind_not_inb
                   omega
-              rw [←spv.size_eq.1] at ind_inb
-              simp [Finset.sum_eq_single ind almost_zero ind_inb] }
-            simp at exists_i
-            have h_getVal := getValSpV_empty spv m exists_i
-            simp at h_getVal
-            simp [h_getVal]
-            apply Finset.sum_eq_zero
-            rintro x hx
-            by_cases h_eq: spv.ind[x]! = m <;> simp [h_eq]
-            simp [←h_eq] at h_getVal
-            simp at hx
-            rw [spv.size_eq.1] at hx
-            simp [getValSpV_eq spv x hx] at h_getVal
-            simp [h_getVal]
+              simp [Finset.sum_eq_single ind almost_zero ind_inb]
+            · simp at exists_i
+              have h_getVal := getValSpV_empty spv m exists_i
+              simp at h_getVal
+              simp [h_getVal]
+              apply Finset.sum_eq_zero
+              rintro x hx
+              by_cases h_eq: spv.ind[x]! = m <;> simp [h_eq]
+              simp [←h_eq] at h_getVal
+              have hx' : x < spv.size := by simpa using hx
+              simp [getValSpV_eq spv x hx'] at h_getVal
+              simp [h_getVal]
       have fin_lemma := ind_lemma (arr.size) (by rfl)
       rw [←fin_lemma]
-      exact Finset.sum_congr (by rfl) fun i h_i => by aesop
+      exact Finset.sum_congr (by rfl) (fun i h_i => by aesop)
 
 --sparse vector by vector multiplication algorithm actually computes dot product
 theorem VSpV_correct_triple (out: Array Int) (arr: Array Int) (spv: SpV Int):

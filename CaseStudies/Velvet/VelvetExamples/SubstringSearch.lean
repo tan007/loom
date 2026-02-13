@@ -6,7 +6,7 @@ import CaseStudies.TestingUtil
 
 set_option loom.semantics.termination "total"
 set_option loom.semantics.choice "demonic"
-set_option loom.solver "cvc5"
+set_option loom.solver "grind"
 set_option loom.solver.smt.timeout 5
 
 --this will ne our answer type
@@ -80,7 +80,88 @@ do
     return ⟨l_ans, r_ans, ans > 0⟩
 
 prove_correct SubstringSearch by
-  loom_solve
+  loom_goals_intro
+  loom_unfold
+  all_goals try loom_solver
+  · intro hpos
+    refine ⟨?_, ?_⟩
+    · omega
+    · constructor
+      · omega
+      · constructor
+        · exact if_pos
+        · intro i hi
+          by_cases hip : i = pnt
+          · subst hip
+            simpa using if_pos_1
+          · have hip_lt : i < pnt := by omega
+            exact invariant_8 i (by omega) hip_lt
+  · intro l₁ r₁ hcorr hr
+    by_cases hrp : r₁ = pnt
+    · rw [hrp]
+      have hlen_le : r₁ - l₁ + 1 ≤ cnt + 1 := by
+        by_cases hcp : cnt < pnt
+        · have hlow : pnt - cnt ≤ l₁ := by
+            by_contra hlt
+            have hle : l₁ ≤ pnt - cnt - 1 := by omega
+            have htrue : p s[pnt - cnt - 1]! = true := by
+              simpa using (hcorr.2.2 (pnt - cnt - 1) ⟨hle, by omega⟩)
+            exact (invariant_11 hcp) htrue
+          omega
+        · omega
+      by_cases hlt : r₁ - l₁ + 1 < cnt + 1
+      · exact Or.inr (by simpa [hrp] using hlt)
+      · left
+        constructor
+        · omega
+        · omega
+    · have hrlt : r₁ < pnt := by omega
+      have hold := invariant_12 l₁ r₁ hcorr hrlt
+      rcases hold with hEq | hLt
+      · right
+        omega
+      · right
+        omega
+  · intro l₁ r₁ hcorr hr
+    by_cases hrp : r₁ = pnt
+    · rw [hrp]
+      have hlen_le : r₁ - l₁ + 1 ≤ cnt + 1 := by
+        by_cases hcp : cnt < pnt
+        · have hlow : pnt - cnt ≤ l₁ := by
+            by_contra hlt
+            have hle : l₁ ≤ pnt - cnt - 1 := by omega
+            have htrue : p s[pnt - cnt - 1]! = true := by
+              simpa using (hcorr.2.2 (pnt - cnt - 1) ⟨hle, by omega⟩)
+            exact (invariant_11 hcp) htrue
+          omega
+        · omega
+      by_cases hlt : r₁ - l₁ + 1 < ans
+      · exact Or.inr (by simpa [hrp] using hlt)
+      · left
+        constructor
+        · omega
+        · omega
+    · have hrlt : r₁ < pnt := by omega
+      exact invariant_12 l₁ r₁ hcorr hrlt
+  · intro l₁ r₁ hcorr hr
+    have hrlt : r₁ < pnt := by
+      have hrle : r₁ ≤ pnt := Nat.le_of_lt_succ hr
+      rcases lt_or_eq_of_le hrle with hlt | hEq
+      · exact hlt
+      · subst hEq
+        exfalso
+        have hptrue : p s[r₁]! = true := by
+          simpa using (hcorr.2.2 r₁ ⟨hcorr.1, le_rfl⟩)
+        exact if_neg_1 (by simpa using hptrue)
+    exact invariant_12 l₁ r₁ hcorr hrlt
+  · intro hflag l₁ r₁ hcorr
+    cases i_4
+    have hans : ans > 0 := by simpa using hflag
+    have hbest : ans = r_ans - l_ans + 1 := (invariant_9 hans).1
+    have hrlt : r₁ < pnt := by
+      have hrs : r₁ < s.size := hcorr.2.1
+      omega
+    simpa [hbest] using (invariant_12 l₁ r₁ hcorr hrlt)
 
 --prove theorem not about the monadic computation but the actual
 --extract result

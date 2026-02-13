@@ -80,7 +80,12 @@ attribute [grind] filter_sum_snoc
 
 prove_correct sum_even by
   loom_solve
-  rw [invariant_2]
-  have i_eq_size : i = arr.size := by omega
-  have extract_eq : arr = (arr.extract 0 i) := by aesop
-  rw [← extract_eq]
+  · have hs := filter_sum_snoc arr (fun x => x % 2 = 0) i if_pos
+    have hne : arr[i]! % 2 ≠ 0 := by
+      simpa using if_pos_1
+    have hs2 : (Array.filter (fun x => x % 2 = 0) (Array.extract arr 0 i)).sum =
+        (Array.filter (fun x => x % 2 = 0) (Array.extract arr 0 (i + 1))).sum := by
+      simpa [hne] using hs
+    exact invariant_2.trans hs2
+  · have hi : i = arr.size := by omega
+    simpa [hi] using invariant_2

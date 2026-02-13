@@ -26,7 +26,7 @@ method test1 (n : Nat) return (res : Nat)
       pure (Nat.succ b)
 -- set_option trace.Loom.debug true in
 prove_correct test1 by
-  loom_solve
+  cases n <;> simp <;> loom_solve
 
 
 /-
@@ -64,4 +64,6 @@ method test3 (a : Nat) (b : Nat) (c : Nat) return (res : Nat)
     | 2, 3, 4 => pure (10 : Nat)
     | _, _, _ => pure (a + b + c + 10)
 prove_correct test3 by
-  loom_solve
+  cases a <;> cases b <;> cases c <;> simp <;> try (loom_solve <;> omega)
+  rename_i n1 n2 n3
+  split <;> (loom_solve <;> omega)

@@ -73,6 +73,7 @@ method insertionSort
       invariant arr.size = arrOld.size
       invariant mind ≤ n
       invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i]! ≤ arr[j]!
+      invariant forall i, 0 ≤ i ∧ i < mind - 1 → arr[i]! ≤ arr[mind - 1]!
       invariant arr.toMultiset = arrOld.toMultiset
       done_with mind = 0
       do
@@ -104,6 +105,35 @@ set_option maxHeartbeats 1000000
 
 prove_correct insertionSort by
   loom_solve
+  · intro i j hi hij hjn hjm1
+    by_cases hj : j = mind
+    · subst j
+      by_cases him1 : i = mind - 1
+      · subst i
+        have hlt : arr_1[mind]! ≤ arr_1[mind - 1]! := by omega
+        grind
+      · have hi_lt : i < mind - 1 := by omega
+        have hleft : arr_1[i]! ≤ arr_1[mind - 1]! := invariant_8 i hi hi_lt
+        grind
+    · by_cases him1 : i = mind - 1
+      · subst i
+        have hmj : mind < j := by omega
+        have hbase : arr_1[mind]! ≤ arr_1[j]! := invariant_7 mind j (by omega) hmj hjn hj
+        grind
+      · by_cases him : i = mind
+        · subst i
+          have hm1j : mind - 1 < j := by omega
+          have hbase : arr_1[mind - 1]! ≤ arr_1[j]! :=
+            invariant_7 (mind - 1) j (by omega) hm1j hjn (by omega)
+          grind
+        · have hbase : arr_1[i]! ≤ arr_1[j]! := invariant_7 i j hi hij hjn hj
+          grind
+  · intro i j hi hij hjs
+    cases i_1
+    by_cases hEq : i = j
+    · subst hEq
+      omega
+    · exact invariant_3 i j hi (Nat.lt_of_le_of_ne hij hEq) (by omega)
 
 end insertionSort
 
@@ -127,6 +157,34 @@ method sqrt (x: ℕ) return (res: ℕ)
     return i - 1
 
 prove_correct sqrt by
-  loom_solve <;> loom_smt [*]
+  loom_solve
+  · intro j hj
+    by_cases hEq : j = i
+    · subst j
+      exact if_pos
+    · exact invariant_1 j (by omega)
+  · intro i_1 hi_sq
+    have hi_lt : i_1 < i := by
+      by_contra hnot
+      have hi_le : i ≤ i_1 := Nat.not_lt.mp hnot
+      have hsq_le : i * i ≤ i_1 * i_1 := Nat.mul_le_mul hi_le hi_le
+      omega
+    exact Nat.le_pred_of_lt hi_lt
+  · intro i_1 hi_le
+    have hi_pos : 0 < i := by
+      by_cases hi0 : i = 0
+      · subst i
+        omega
+      · exact Nat.pos_of_ne_zero hi0
+    have hi_lt : i_1 < i := by
+      have hsucc : i_1 + 1 ≤ i := by omega
+      exact Nat.lt_of_lt_of_le (Nat.lt_succ_self i_1) hsucc
+    exact invariant_1 i_1 hi_lt
+  · have hi_pos : 0 < i := by
+      by_cases hi0 : i = 0
+      · subst i
+        omega
+      · exact Nat.pos_of_ne_zero hi0
+    exact invariant_1 (i - 1) (Nat.sub_lt hi_pos (by decide))
 
 end squareRoot

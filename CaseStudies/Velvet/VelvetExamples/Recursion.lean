@@ -107,7 +107,7 @@ method SimpleList (li: List Nat) return (res: Nat)
       return 1
 
 prove_correct SimpleList by
-  loom_solve
+  cases li <;> simp <;> loom_solve
 
 @[reducible]
 def contains (tree: mt1 β) (elem: β) :=
@@ -208,4 +208,3 @@ method pow2 (n: Nat) return (res: Nat)
 
 prove_correct pow2 by
   loom_solve
-  rw [if_pos]; rfl

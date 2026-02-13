@@ -42,6 +42,7 @@ method insertionSort_part
         invariant arr.size = arr_size
         invariant mind ≤ n
         invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i]! ≤ arr[j]!
+        invariant forall i, 0 ≤ i ∧ i < mind - 1 → arr[i]! ≤ arr[mind - 1]!
         invariant arr.toMultiset = arr₀.toMultiset
         do
           if arr[mind]! < arr[mind - 1]! then
@@ -52,7 +53,36 @@ method insertionSort_part
 
 set_option maxHeartbeats 1000000 in
 prove_correct insertionSort_part by
-  loom_solve!
+  loom_solve
+  · intro i j hi hij hjn hjm1
+    by_cases hj : j = mind
+    · subst j
+      by_cases him1 : i = mind - 1
+      · subst i
+        have hlt : arr_1[mind]! ≤ arr_1[mind - 1]! := by omega
+        grind
+      · have hi_lt : i < mind - 1 := by omega
+        have hleft : arr_1[i]! ≤ arr_1[mind - 1]! := invariant_8 i hi hi_lt
+        grind
+    · by_cases him1 : i = mind - 1
+      · subst i
+        have hmj : mind < j := by omega
+        have hbase : arr_1[mind]! ≤ arr_1[j]! := invariant_7 mind j (by omega) hmj hjn hj
+        grind
+      · by_cases him : i = mind
+        · subst i
+          have hm1j : mind - 1 < j := by omega
+          have hbase : arr_1[mind - 1]! ≤ arr_1[j]! :=
+            invariant_7 (mind - 1) j (by omega) hm1j hjn (by omega)
+          grind
+        · have hbase : arr_1[i]! ≤ arr_1[j]! := invariant_7 i j hi hij hjn hj
+          grind
+  · intro i j hi hij hjs
+    cases i_1
+    by_cases hEq : i = j
+    · subst hEq
+      omega
+    · exact invariant_3 i j hi (Nat.lt_of_le_of_ne hij hEq) (by omega)
 
 end
 
@@ -123,7 +153,6 @@ method insertionSort_result
 prove_correct insertionSort_result by
   have triple_termination := insertionSort_termination_correct arrOld
   have triple_res := insertionSort_part_correct arrOld
-  -- applying lemma about separation of termination proof and correctness proof
   exact VelvetM.total_decompose_triple
     (insertionSort_termination arrOld) (insertionSort_part arrOld) (insertionSort_result arrOld)
     (eqx := by rfl) (eqy := by rfl)

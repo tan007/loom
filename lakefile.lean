@@ -113,6 +113,15 @@ def CaseStudiesRoot : Array Glob :=
     `CaseStudies.TestingUtil,
     `CaseStudies.Theory]
 
+def CaseStudiesNoExamples : Array Glob :=
+  CaseStudiesRoot ++ #[
+    Glob.one `CaseStudies.Basic,
+    Glob.submodules `CaseStudies.Cashmere,
+    Glob.one `CaseStudies.Velvet.Std,
+    Glob.one `CaseStudies.Velvet.Syntax,
+    Glob.one `CaseStudies.Velvet.VelvetTheory
+  ]
+
 @[default_target]
 lean_lib Loom {
   globs := #[Glob.submodules `Loom]
@@ -133,5 +142,9 @@ lean_lib Velvet {
 }
 
 lean_lib CaseStudies {
-  globs := #[Glob.submodules `Loom, Glob.submodules `CaseStudies]
+  globs := #[Glob.submodules `Loom] ++ CaseStudiesNoExamples
+}
+
+lean_lib CaseStudiesExamples {
+  globs := #[Glob.submodules `CaseStudies.Velvet.VelvetExamples]
 }

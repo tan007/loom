@@ -74,6 +74,7 @@ method insertionSort_total
       invariant arr.size = arr_size
       invariant mind ≤ n
       invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i]! ≤ arr[j]!
+      invariant forall i, 0 ≤ i ∧ i < mind - 1 → arr[i]! ≤ arr[mind - 1]!
       invariant arr.toMultiset = arr₀.toMultiset
       decreasing mind
       do
@@ -85,7 +86,36 @@ method insertionSort_total
     return
 set_option maxHeartbeats 1000000 in
 prove_correct insertionSort_total by
-  loom_solve!
+  loom_solve
+  · intro i j hi hij hjn hjm1
+    by_cases hj : j = mind
+    · subst j
+      by_cases him1 : i = mind - 1
+      · subst i
+        have hlt : arr_1[mind]! ≤ arr_1[mind - 1]! := by omega
+        grind
+      · have hi_lt : i < mind - 1 := by omega
+        have hleft : arr_1[i]! ≤ arr_1[mind - 1]! := invariant_8 i hi hi_lt
+        grind
+    · by_cases him1 : i = mind - 1
+      · subst i
+        have hmj : mind < j := by omega
+        have hbase : arr_1[mind]! ≤ arr_1[j]! := invariant_7 mind j (by omega) hmj hjn hj
+        grind
+      · by_cases him : i = mind
+        · subst i
+          have hm1j : mind - 1 < j := by omega
+          have hbase : arr_1[mind - 1]! ≤ arr_1[j]! :=
+            invariant_7 (mind - 1) j (by omega) hm1j hjn (by omega)
+          grind
+        · have hbase : arr_1[i]! ≤ arr_1[j]! := invariant_7 i j hi hij hjn hj
+          grind
+  · intro i j hi hij hjs
+    cases i_1
+    by_cases hEq : i = j
+    · subst hEq
+      omega
+    · exact invariant_3 i j hi (Nat.lt_of_le_of_ne hij hEq) (by omega)
 
 end insertionSort
 
@@ -110,7 +140,43 @@ method sqrt_total (x: ℕ) return (res: ℕ)
         i := i + 1
       return i - 1
 prove_correct sqrt_total by
-  loom_solve <;> loom_smt [*]
+  loom_solve
+  · intro i hi_sq
+    have hsq0 : i * i = 0 := le_antisymm (by simpa [if_pos] using hi_sq) (Nat.zero_le _)
+    have hi0 : i = 0 := by
+      rcases (Nat.mul_eq_zero.mp hsq0) with h | h <;> assumption
+    simpa [hi0]
+  · intro j hj
+    by_cases hEq : j = i
+    · subst j
+      exact if_pos
+    · exact invariant_1 j (by omega)
+  · have hix : i ≤ x := le_trans (Nat.le_mul_self i) if_pos
+    have hi_lt : i < x + 8 := by omega
+    omega
+  · intro i_1 hi_sq
+    have hi_lt : i_1 < i := by
+      by_contra hnot
+      have hi_le : i ≤ i_1 := Nat.not_lt.mp hnot
+      have hsq_le : i * i ≤ i_1 * i_1 := Nat.mul_le_mul hi_le hi_le
+      exact done_1 (le_trans hsq_le hi_sq)
+    exact Nat.le_pred_of_lt hi_lt
+  · intro i_1 hi_le
+    have hi_pos : 0 < i := by
+      by_cases hi0 : i = 0
+      · subst i
+        exact False.elim (done_1 (by omega))
+      · exact Nat.pos_of_ne_zero hi0
+    have hi_lt : i_1 < i := by
+      have hsucc : i_1 + 1 ≤ i := by omega
+      exact Nat.lt_of_lt_of_le (Nat.lt_succ_self i_1) hsucc
+    exact invariant_1 i_1 hi_lt
+  · have hi_pos : 0 < i := by
+      by_cases hi0 : i = 0
+      · subst i
+        exact False.elim (done_1 (by omega))
+      · exact Nat.pos_of_ne_zero hi0
+    exact invariant_1 (i - 1) (Nat.sub_lt hi_pos (by decide))
 
 --root of power 3 for a non-negative integer implemented in Velvet
 method cbrt (x: ℕ) return (res: ℕ)
@@ -129,7 +195,53 @@ method cbrt (x: ℕ) return (res: ℕ)
         i := i + 1
       return i - 1
 prove_correct cbrt by
-  loom_solve <;> try loom_smt [*]
+  loom_solve
+  · intro i hi_cube
+    have hcube0 : i * i * i = 0 := le_antisymm (by simpa [if_pos] using hi_cube) (Nat.zero_le _)
+    have hi0 : i = 0 := by
+      rcases (Nat.mul_eq_zero.mp hcube0) with h | h
+      · rcases (Nat.mul_eq_zero.mp h) with h' | h' <;> exact h'
+      · exact h
+    simpa [hi0]
+  · intro j hj
+    by_cases hEq : j = i
+    · subst j
+      exact if_pos
+    · exact invariant_1 j (by omega)
+  · have h1 : i ≤ i * i := Nat.le_mul_self i
+    have h2 : i * i ≤ i * i * i := by
+      by_cases hi0 : i = 0
+      · subst i
+        simp
+      · have hi1 : 1 ≤ i := Nat.succ_le_of_lt (Nat.pos_of_ne_zero hi0)
+        simpa [Nat.mul_assoc] using (Nat.mul_le_mul_left (i * i) hi1)
+    have hix : i ≤ x := le_trans h1 (le_trans h2 if_pos)
+    have hi_lt : i < x + 8 := by omega
+    omega
+  · intro i_1 hi_cube
+    have hi_lt : i_1 < i := by
+      by_contra hnot
+      have hi_le : i ≤ i_1 := Nat.not_lt.mp hnot
+      have hcube_le : i * i * i ≤ i_1 * i_1 * i_1 :=
+        Nat.mul_le_mul (Nat.mul_le_mul hi_le hi_le) hi_le
+      exact done_1 (le_trans hcube_le hi_cube)
+    exact Nat.le_pred_of_lt hi_lt
+  · intro i_1 hi_le
+    have hi_pos : 0 < i := by
+      by_cases hi0 : i = 0
+      · subst i
+        exact False.elim (done_1 (by omega))
+      · exact Nat.pos_of_ne_zero hi0
+    have hi_lt : i_1 < i := by
+      have hsucc : i_1 + 1 ≤ i := by omega
+      exact Nat.lt_of_lt_of_le (Nat.lt_succ_self i_1) hsucc
+    exact invariant_1 i_1 hi_lt
+  · have hi_pos : 0 < i := by
+      by_cases hi0 : i = 0
+      · subst i
+        exact False.elim (done_1 (by omega))
+      · exact Nat.pos_of_ne_zero hi0
+    exact invariant_1 (i - 1) (Nat.sub_lt hi_pos (by decide))
 
 
 /-
@@ -186,6 +298,22 @@ method sqrt_bn (x: ℕ) (bnd: ℕ) return (res: ℕ)
         r := m
     return l
 prove_correct sqrt_bn by
-  loom_solve <;> loom_smt [*]
+  loom_solve
+  · intro i hi
+    exact le_trans (Nat.mul_le_mul hi hi) if_pos_1
+  · intro i_2 hi_sq
+    have hi' : l = i := by simpa using congrArg (fun p => p.fst) i_1
+    have hr' : r = r_1 := by simpa using congrArg (fun p => p.snd) i_1
+    have hi : i = l := hi'.symm
+    have hr : r_1 = r := hr'.symm
+    subst i r_1
+    have hi_r : i_2 < r := by
+      by_contra hnot
+      have hr_le : r ≤ i_2 := Nat.not_lt.mp hnot
+      have hr_sq_le : r * r ≤ i_2 * i_2 := Nat.mul_le_mul hr_le hr_le
+      exact (not_lt_of_ge hi_sq) (lt_of_lt_of_le invariant_2 hr_sq_le)
+    by_contra hle
+    have hl_lt : l < i_2 := Nat.lt_of_not_ge hle
+    omega
 
 end squareRoot
