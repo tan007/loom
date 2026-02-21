@@ -1,7 +1,7 @@
 import Lake
 open Lake DSL System
 
-require "leanprover-community" / "mathlib" @ git "v4.28.0-rc1"
+require "leanprover-community" / "mathlib" @ git "v4.28.0"
 require auto from git "https://github.com/tan007/lean-auto.git" @ "main"
 
 package Loom where
